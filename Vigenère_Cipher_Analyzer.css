@@ -1,0 +1,25 @@
+#w1_keylen, #w1_guess, #notice-link {
+   color:blue;
+   font-weight:bold; 
+}
+#notice-link{
+   text-decoration:underline;
+}
+#w1_out{
+   color:green; 
+}
+#wl_left{
+   width:300px; float:left;
+   clear:left; height:25px;
+}
+#wrap1{
+   width:1100px; height:300px; 
+}
+#chart1{
+   float:left; background-color:#eee; 
+   margin-top:5px; margin-left:5px; 
+   width:1048px; height:250px; 
+}
+#wloutwrap{
+   clear:both; width:325px; 
+}

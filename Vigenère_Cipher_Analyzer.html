@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <!-- bugfix: keylength was hardcoded once
+  
+  To make your own encrypted test text:
+  
+  https://github.com/asweigart/codebreaker/blob/master/vigenereCipher.py
+  -->
+  <head>
+    <title>Vigenère Cipher Analyzer</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script> 
+    <!-- https://cdnjs.com/libraries/jqPlot ... apparently library CDN's '-->
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqPlot/1.0.8/jquery.jqplot.min.js" integrity="sha256-by156DyOhzv1ycpIgZw7+FrANlmrNHZMoIV8YOCyPic=" crossorigin="anonymous"></script>
+    <script>
+      var sampleText="YPZPKHN Q. Conq ppd Rrexqs-Hfoa Ikith sir bvjevmiej pw fek yazx tzual nf jlpbhnx eu pdr jlobdr fq ppd brqg, imd fi diuiej jwshzqc bn df: rjkd oi wsqbe jka pzd ghaxdd zqpw shv ekwj hvu oqrtvu sir rvdzqmg, sxp qs hrg jw oitwqzds fu ywmvvuoisifqo qm ik, 'djl vhrw ea shv xom nf r ekwj,' tyrqogt Roekd 'wzwdwtt glybtrvv kz boeyazraklkvr?' Sf vdm vaj fkvriuhnqmg zq dmq onq iqmd (rv smkl rv opd cfxhl, eoi wdm gok gwg lauh dmq fvhh ddrp vhmdpp djl rtlsel), vhvwdmq tyh ltdajxnm nf ddgqmg r gwqry-tkwqm wfxhl ae nrnbg tyh pznusoa we gvwpqmg ls wvc pzfgqmg kka lzijlaa, vhvq occdvqhg z Wylpm Qaseeb vikk lqmk vbaa qae fhwre sb dmq. Tyhnm vaj qkbgiej ow UEIB nmlainwjke zq ppzt; ern lhd Roekd tyljs ht jr RMQY dxyp nuk rb bge ndu bn hvdn bge Idxjht jdu bn ikvate, 'Oy gaiq! Oy gaiq! I jkwtk bv owbd!' (wyhj age kkkcfhk lp wuei dbbdrndnlr, ik ryktrihz bn hvu ppzt jka wtgyw pw gamh swmdvual zt kkea, auk dp bge klim ht roh adedhz ytikh jisuidh); jtt nkav shv Uwjaik dybtacou BNOB D SISCY RQB NF ZWO EZIJWYWZT-GRYSDT, rqz tnobhz is ik, djl shvq dcqrzhz wm, Aclym rtrupmc tf kaz eevw, bwq ik ihirhvg wkqojv dmq mzqz bgak vdm gau qaddr shbwqe jhav z rrexqs wzwd mhtyhn i vazvpknak-skkjek, rn i vakfd bn trna wtt fi eb, znu eqzmiej sqsh txnqnszwu, age idj ibrfvo bge wlatc awwaz ht, rqz nnrkxjisecb sir jlvp qm tzpa bn svh eb oog gkem a cdnod rrexqs-hfoa cmdvu ppd hvgcm. Hn rqkbgei pkudnk gkem wvqp Ikith wnsei lp, vdvvu kvbe trjahdvuevf hfz ev shv zkzkd jka ezs kr cms olw wozie.";
+      var original, coincidences, _hiliteT, _avg, _stddev;
+    </script>
+  </head>
+  <body>
+Select a data point [<span id="info1"></span>] <span id="coinc_gentime"></span>&nbsp;&nbsp;<span id="notice-link">Usage&nbsp;Notice</span>
+  <div id="wrap1">
+    <div id="chart1"></div>
+    <div id="w1_left">Average?&nbsp;<span id="w1_avg"></span>&nbsp;&ndash;&nbsp;StdDev?&nbsp;<span id="w1_stddev"></span><br />
+      Keylen?&nbsp;<span id="w1_keylen"></span>&nbsp;<span id="key_time"></span>&nbsp;&ndash;&nbsp;Key?&nbsp;<span id="w1_guess"></span>&nbsp;<span id="guess_time"></span>
+    </div>
+  </div>  
+  <div id="wloutwrap">Output?&nbsp;<span id="w1_out"></span></div>
+
+<hr />
+<script>
+function estimateKeyLen() {
+  var c;
+  var lside = rside = false;
+  for(i=0;i<original.length; i++) {
+    c = coincidences[i];
+    if (c > _hiliteT) {
+      if(lside===false) {
+         lside = 0;
+         rside = i;
+      } else { 
+         lside=rside;
+         rside=i; 
+      }
+      offset = rside-lside;
+      if(!offsets[offset]) { offsets[offset] = 1 } else {offsets[offset] += 1;}
+    } 
+  }
+  c=0; var cc, o;
+  for(i=0;i<offsets.length;i++) {
+    o=offsets[i];
+    if(o) if(o>c) { c=o; cc=i; }
+  }
+  
+  return cc;
+}
+
+function getOccurs(corpus) {
+    var occ=new Array();
+    if(corpus=='a:z') {
+    // public domain short-circuit list
+      var master = [8.167, 1.492, 2.782, 4.253, 12.70,  //abcde
+           2.228, 2.015, 6.094, 6.966, 0.153,
+           0.772, 4.025, 2.406, 6.749, 7.507,
+           1.929, 0.095, 5.987, 6.327, 9.056,
+           2.758, 0.978, 2.360, 0.150, 1.974, // uvwxy
+           0.074];
+      for(i=0;i<master.length;) master[i++]/=100;
+      return master;
+    } 
+
+    var c;
+    for(var i=0; i<corpus.length; i++) {
+      c=corpus[i].charCodeAt(0)-97;
+      if(!occ[c]){occ[c]=1}else{occ[c]+=1};
+    }
+  return occ;    
+}
+var std_occs;
+var cols_occs=new Array(); 
+// [ [[slice],[occurs],len], ... ] vectors
+
+function getCols(){
+  var lim, rem, i;
+  for(var j=0; j<keylen; j++){
+    // col=original.match(new RegExp('.{1,' + (i+1) + '}', 'g')); // extract n'th column ... in a string
+    lim=parseInt(original.length/keylen);
+    rem=original.length%keylen;
+    col="";
+    for(i=0; i<lim; i++) { col+=original[i*keylen+j]; }
+    if(j<=rem)col+=original[i*keylen]; // stragglers
+    cols_occs[j]=[[col],getOccurs(col),col.length];
+  }
+}
+
+var col_ratios=new Array();
+function getRatios(){
+  var jStop, tot, test;
+  for(i=0; i<keylen; i++){
+    jStop = cols_occs[i][1].length;
+    tot = cols_occs[i][2];
+    var ratios = new Array();
+    for(j=0; j<jStop; j++){
+      test = cols_occs[i][1][j];
+      if(test){ ratios[j] = test/tot } else {ratios[j]=0};
+    }
+    col_ratios.push(ratios);
+  } 
+}
+
+$(document).ready(function() {
+  $("#notice-dialog").dialog({
+    autoOpen:false,
+    modal:true,
+    buttons: { Ok: function(){$("#notice-dialog").dialog("close");} } 
+  });
+  $("#notice-link").on("click", function(){
+    $("#notice-dialog").dialog("open");
+  });
+  var s = sampleText;
+  var ta,tb;
+  ta=performance.now();
+  coincidences = getInnerCoincidences(s);
+  tb=performance.now();
+  $("#coinc_gentime").html("("+ (tb-ta).toFixed(1) + " ms)");
+  
+  _avg = average(coincidences);
+  _stddev = standardDeviation(coincidences);
+  _hiliteT=parseFloat(_avg)+parseFloat(_stddev);
+  $("#w1_avg").html(_avg.toFixed(1));
+  $("#w1_stddev").html(_stddev.toFixed(1));
+
+  ta=performance.now();
+  keylen = estimateKeyLen();  
+  tb=performance.now();
+  $("#w1_keylen").html(keylen);
+  $("#key_time").html("("+ (tb-ta).toFixed(1) + " ms)");
+  
+/*  To make your own encrypted test text:
+  
+  https://github.com/asweigart/codebreaker/blob/master/vigenereCipher.py     */
+  
+  ta=performance.now();
+  var myGuess = guess();
+  tb=performance.now();
+  $("#w1_guess").html(myGuess);
+  $("#guess_time").html("("+ (tb-ta).toFixed(1) + " ms)");
+  
+  $("#w1_out").html(tryOut(myGuess));
+
+  alert("Analysis finished.\n\nActivate 'Usage Notice' for intended use.");
+   
+  doChart();
+  
+// wipe public vars (free mem/WebView persistence) sampleText=original=coincidences=col_ratios=std_occs=cols_occs=offsets=null;
+
+});
+
+</script>
+<div id="notice-dialog" title="Vigenère Analyzer">
+Information Security students may wish to explore trivial cryptanalysis with this; e.g. testing a <a href="https://github.com/asweigart/codebreaker/blob/master/vigenereCipher.py">Vigenère encryptor's</a> (or their own code) regarding keys, sources and security.<hr />
+Some assumptions:<ul><li>No input form needed.<li>English lowercase a-z and open-source hardcoded frequencies.<li>Everything else passes through.<li>Single-byte charset.<li>First "best" results win (no tiebreaking, no advanced behavior).<li>Not a cracking tutorial.</ul>
+</div>
+</body></html>
