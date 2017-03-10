@@ -7,7 +7,7 @@
   https://github.com/asweigart/codebreaker/blob/master/vigenereCipher.py
   -->
   <head>
-    <title>Vigenère Cipher Analyzer</title>
+    <title>Vigenère/Caesar/Shift Cipher Analyzer</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script> 
     <!-- https://cdnjs.com/libraries/jqPlot ... apparently library CDN's '-->
     <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
@@ -22,10 +22,11 @@
 Select a data point [<span id="info1"></span>] <span id="coinc_gentime"></span>&nbsp;&nbsp;<span id="notice-link">Usage&nbsp;Notice</span>
   <div id="wrap1">
     <div id="chart1"></div>
-    <div id="w1_left">Average?&nbsp;<span id="w1_avg"></span>&nbsp;&ndash;&nbsp;StdDev?&nbsp;<span id="w1_stddev"></span><br />
+    <div id="w1_left">Average?&nbsp;<span id="w1_avg"></span>&nbsp;&ndash;&nbsp;StdDev?&nbsp;<span id="w1_stddev"></span>&nbsp;<span id="Et-tu-Brute"></span><br />
       Keylen?&nbsp;<span id="w1_keylen"></span>&nbsp;<span id="key_time"></span>&nbsp;&ndash;&nbsp;Key?&nbsp;<span id="w1_guess"></span>&nbsp;<span id="guess_time"></span>
     </div>
-  </div>  
+  </div>
+  <div><span>Longer text yields better results.</span></div>  
   <div id="wloutwrap">Output?&nbsp;<span id="w1_out"></span></div>
 
 <hr />
@@ -115,6 +116,8 @@ $(document).ready(function() {
     modal:true,
     buttons: { Ok: function(){$("#notice-dialog").dialog("close");} } 
   });
+  $("#Et-tu-Brute").hide();  
+
   $("#notice-link").on("click", function(){
     $("#notice-dialog").dialog("open");
   });
@@ -146,20 +149,26 @@ $(document).ready(function() {
   tb=performance.now();
   $("#w1_guess").html(myGuess);
   $("#guess_time").html("("+ (tb-ta).toFixed(1) + " ms)");
+  caesarTest=myGuess.match(new RegExp(myGuess[0],"g")||[]).length;
+  if(caesarTest==myGuess.length){ // effective length 1
+  
+   $("#Et-tu-Brute").html("Caesar/Shift").show();  
+  }
   
   $("#w1_out").html(tryOut(myGuess));
 
-  alert("Analysis finished.\n\nActivate 'Usage Notice' for intended use.");
+  alert("Analysis finished.\n\nActivate 'Usage Notice' for notes and intended use.");
    
   doChart();
   
-// wipe public vars (free mem/WebView persistence) sampleText=original=coincidences=col_ratios=std_occs=cols_occs=offsets=null;
+ // wipe public vars (free mem/WebView persistence)
+ sampleText=original=coincidences=col_ratios=std_occs=cols_occs=offsets=null;
 
 });
 
 </script>
-<div id="notice-dialog" title="Vigenère Analyzer">
-Information Security students may wish to explore trivial cryptanalysis with this; e.g. testing a <a href="https://github.com/asweigart/codebreaker/blob/master/vigenereCipher.py">Vigenère encryptor's</a> (or their own code) regarding keys, sources and security.<hr />
-Some assumptions:<ul><li>No input form needed.<li>English lowercase a-z and open-source hardcoded frequencies.<li>Everything else passes through.<li>Single-byte charset.<li>First "best" results win (no tiebreaking, no advanced behavior).<li>Not a cracking tutorial.</ul>
+<div id="notice-dialog" title="Cipher Analyzer">
+A Vigenère cipher is just a set of Caesar shift ciphers. Information Security students may wish to explore trivial cryptanalysis with this; e.g. testing a <a href="https://github.com/asweigart/codebreaker/blob/master/vigenereCipher.py">Vigenère</a> or <a href="https://code.sololearn.com/cK267fizDS8H/?ref=app">Caesar/Shift</a> cipher</a> encryptor (or their own code) regarding keys, sources and security.<hr />
+Some assumptions:<ul><li>No input form needed.<li>English a-z (otherwise transparent pass through)<li>Open-source hardcoded frequencies.<li>Single-byte charset.<li>Analysis sample is "long enough".<li>First "best" results win (no tiebreaking/advanced behavior).<li>Not a cracking tutorial.</ul>
 </div>
 </body></html>
