@@ -9,8 +9,10 @@
 #print u'\xe9'
 #print struct.pack('B', 218)
 
-space = u"\u0020"
-wall="+"    # terminal characters have to be tested on SoloLearn
+space = " "
+wall= '*'  
+
+# safechars = ["+", 231, 232, 233, 234, 235-?-245, 246, 247, 248, -249, 250
 
 import math
 from random import randint
@@ -60,6 +62,7 @@ def mazeWalk(maze, rows, cols):
   maze[r][c]=" "                    # Make a hole
   mazeStep(maze, rows, cols, r, c)
 
+"""
 def mazeXlate(a, rows,cols,x,y):
   # public wall
   # bitmask : UDLR
@@ -95,19 +98,33 @@ def mazeXlate(a, rows,cols,x,y):
     return (D if a[x+1][y] == wall else 0) if x<rows else 0
 
   return(pieces[cr()+cl()+cu()+cd()]) 
+"""
 
 def mazePrint(a, rows, cols, color):
+  target = open('mazeout.txt', 'a')
+
   for i in range(0,2*rows+1):
     # print(''.join(q) for q in a[i][(j for j in range(0,2*cols+1) )])
     l=[]; r=[]
-    for j in range(0,2*cols+1):
+    binout=0
+    max = 2*cols+1
+    for j in range(0,max):
       if (a[i][j]==wall):
-        l.append( mazeXlate( a,rows,cols,i,j ) )
+        # l.append( mazeXlate( a,rows,cols,i,j ) )
         r.append(wall)
-      else: l.append(" "); r.append(" ")
-    print ''.join(r) + ''.join(l)
+        binout += 2**(max-j)
+      else: 
+	    #l.append(" "); 
+		r.append(" ")
+    target.write(str(binout) + ",")
 
-square=25
+    ll = [int(x) for x in bin(binout)[2:]]
+    l = [wall if c==1 else " " for c in ll]
+    print ''.join(r) + " | " + ''.join(l)
+  target.write("0\n")
+  target.close()
+
+square=19
 rows=square
 cols=square
 
