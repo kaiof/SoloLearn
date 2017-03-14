@@ -1,28 +1,24 @@
-from __future__ import print_function   # Home conflict; strip at SoloLearn
-
 # Just hit Run with NO INPUT.
 # You're new! You'll get instructions.
 
-import socket, ssl, json #, urllib.parse as urlp
-from random import randint
+import socket, ssl, json, urllib.parse as urlp, string
+from random import randint, choice
+# import multiprocessing # memory seems ok
 
 ###### Identify your saved state #####
-myID=""    # Provided to new players #
+myID="v4VEa62C"    # Provided to new players #
 myPass=""  # Up to you:theft control #
-######################################
-# 
-# Done the 'hard' way due to missing imports
-# and a SoloLearn bug. TODO: Move queries
-# off program and switch sheets.
+onSoloLearn=True                     #
 ######################################
 
 # Solo:  ....V....X....V....X....V...
-def printInstructions(id):
-  print("Instructions   [          ]")
+def printInstructions():
+  print("Instructions   [{}]".format(myID))
   print("Copy the ID above into myID")
-  print("You may set the password   ")
-  print("NOW (not later). When you  ")
-  print("want to start a new maze,  ")
+#  print("You may set the password   ")
+#  print("NOW (not later). When you  ")
+#  print("want to start a new maze,  ")
+  print("Start over?")
   print("just reset the ID to empty.")
   print("\n ** From now on: ")
   print("Enter as many movements as ")
@@ -35,13 +31,15 @@ def printValidInputs():
   print("---------  INPUTS ---------")
   print("          Normal    Attack ")
   print("            u         U    ")
-  print("Movement: l   r     L   R  ")
+  print("Movement: l . r     L * R  ")
   print("            d         D    ")
   print("        >Treasure  >Offense")
-  print("\n--- No input: View state.")
-  print("Version " + progInfo["version"] + progInfo["verXtra"])
+  print("Ex: uu*RRDdldru          ")
+  print("        * fight in place   ")
+  print("\nNo input = review state. ")
 
-# Program vars
+# Variables
+############################################################
 wall = "*" # chr(233)
 playerChar = "@"
 
@@ -52,19 +50,57 @@ progInfo = {
 }
 
 gameStuff = {
-  "maze" : (),  # TODO: Convert to hexadecimal
-  "meX" : 1,  #TODO: Default start, v1 mazes
-  "meY" : 19,
+  "maze" : { "ints":(), "text":[] },  # TODO: Convert to hexadecimal
+  "lastX" : 0,
+  "lastY" : 0,
+  "nowX" : 1,  #TODO: Default start, v1 mazes
+  "nowY" : 19,
   "events" : (),
   "treasures" : ()
 }
 
+cr = chr(13) + chr(10); dcr = cr+cr
+workarounds = {
+  "getState" : {
+    "server" : "docs.google.com",
+    "port" : 443,
+    "qry" : urlp.urlencode({"tq": "select * where B='{}' and C='{}' order by A desc limit 1".format(progInfo["name"], myID) }),
+    "lines" : [  # Bug workaround
+      "GET ",
+      '/spreadsheets/d',
+      '/165j5AGZZOotBpztjkt0JsEcPLeNBYO8S7fSlsdTgkug/gviz',
+    ]
+  },
+  "postMsg" : {
+    "server" : "script.google.com",
+    "port" : 443,
+    "lines" : [
+      'POST ',
+      '/macros/s',
+      '/AKfycbxmW9vaqyRPaVSpg1igeq',
+      'Y6aQHaDwLewR2njuRjvj8k3oXQ2dg',
+    ]
+  },
+}
+
+def openSocket(server, port):
+  """ TODO: Handle Exceptions: OSError et al
+  """
+  ss = socket.socket(socket.AF_INET,socket.SOCK_STREAM) # IPv4, data stream
+  s = ssl.wrap_socket(ss, ssl_version=ssl.PROTOCOL_TLSv1, ciphers="ALL")
+  s.connect((server,port))
+  return s
+
 def RestoreSavedState():
   global gameStuff
+  gsm = gameStuff["maze"]
+
+  global cr, dcr, workarounds
+  wka=workarounds["getState"]
   
-  # TODO: Delete test data
+  # TODO: Alpha test; add loader
   # ------------------------------------------------
-  gameStuff["maze"] = (
+  gsm["ints"] = (
     1099510579198,586263037986,733365644202,732426183306,734102798074,
     696458446850,818992050158,561040728098,1078014753722,695828777130,
     754752352170,586833600554,802084863978,561038532642,1029428981678,
@@ -77,26 +113,189 @@ def RestoreSavedState():
     
   # TODO: maze, events, treasures
   # TODO: Locate player at correct spot in maze
+  
+  qry, lines, server, port = wka["qry"], wka["lines"], wka["server"], wka["port"]
+  lines.append('/tq?{} HTTP/1.1'.format(qry) + cr)
+  lines.append('Host: {}'.format(server) + dcr)
+
+  s = openSocket(server, port)
+  [s.send(q.encode()) for q in lines]
+
+  res = getResponse(s, 1)
+  # s.shutdown(SHUT_RDWR) # supposed to do this, but constants not defined
+  s.close()
+
+  paren=res.find("(")+1
+  oData = json.loads(res[paren:-4])
+
+  try:
+    rows=oData["table"]["rows"]
+    if(len(rows) == 0):
+      raise Exception("Something's wrong. No results to query.")
+
+    row=rows[0]["c"]                       # TODO: Reusing these for now
+    
+    data = eval(row[4]["v"])
+    gameStuff["nowX"] = int(data["nowX"])
+    gameStuff["nowY"] = int(data["nowY"])
+  except Exception as e:
+    print("Exception while loading data" + "*"*35)
+    print(e)
+  #finally:    # debugging
+  #  print("*"*35)
+  #  import pprint
+  #  pp=pprint.PrettyPrinter(width=38)
+  #  pp.pprint(oData) 
 
 def printMaze():
-  global wall
-  i=0; meX,meY = gameStuff["meX"], gameStuff["meY"]
+  global wall, gameStuff
+  gsm = gameStuff["maze"]
+  i=0; nowX,nowY = gameStuff["nowX"], gameStuff["nowY"]
   
-  for rowInt in gameStuff["maze"]:
+  for rowInt in gsm["ints"]:
     if(rowInt == 0): break; # TODO: Optimize generator
     
     mazeExpand = [int(x) for x in bin(rowInt)[2:]]
     outLine = [wall if c==1 else " " for c in mazeExpand]
-    if(i==meX): outLine[meY] = playerChar;
-    print(''.join(outLine))
+    if(i==nowX): outLine[nowY] = playerChar;
+    o=''.join(outLine)
+    print(o)
+    gsm["text"].append(o)
     i += 1
 
+def tryToMove(moves):
+  # TODO: Convert to class for self variables
+  global gameStuff
+  maze=gameStuff["maze"]["text"]
+  
+  hitwall=False
+  stop=False  # TODO: Confusion
+  
+  def up(x,y):
+    stop=illegal=hitWall=False
+    if x==0:
+      illegal=True
+      stop=True
+    else:
+      if maze[x-1][y] == wall:
+        hitWall=True
+        stop=True
+      else:
+        gameStuff["nowX"] -= 1
+    return([stop, illegal, hitWall])
+        
+  #def HW():
+  #  hitWall=True
+  #  stop=True
+  #def ILL():
+  #  illegal=True
+  #  stop=True
+        
+  def down(x,y):
+    stop=illegal=hitWall=False
+    if x==len(maze):
+      illegal=True
+      stop==True
+    else:
+      if maze[x+1][y] == wall:
+        hitWall=True
+        stop=True
+      else:
+        gameStuff["nowX"] += 1
+    return([stop, illegal, hitWall])
+        
+  def left(x,y):
+    stop=illegal=hitWall=False
+    if y==0:
+      illegal=True
+      stop=True
+    else:
+      if maze[x][y-1] == wall:
+        hitWall=True
+        stop=True
+      else:
+        gameStuff["nowY"] -=1
+    return([stop, illegal, hitWall])
+        
+  def right(x,y):
+    stop=illegal=hitWall=False
+    if y==len(maze[0]):
+      illegal=True
+      stop=True
+    else:
+      if maze[x][y+1] == wall:
+        hitWall=True
+        stop=True
+      else:
+        gameStuff["nowY"] += 1
+    return([stop, illegal, hitWall])
+  
+  def passIt():  # use later
+    pass
+    
+  options={
+    'l' : left,    'L' : left,
+    'u' : up,      'U' : up,
+    'r' : right,   'R' : right,
+    'd' : down,    'D' : down,
+    '.' : passIt,  '*' : passIt,
+  }
+  
+  for c in moves:
+    flags = options[c](gameStuff["nowX"], gameStuff["nowY"])
+    if flags[0]:
+      if flags[1]:
+        print("Illegal move!")
+      if flags[2]:
+        print("You hit a wall!")
+      break
+
 def printStats():
-  print("Stats: TODO")  #TODO
+  print("Stats: Gold, health, messages...TODO")  #TODO
   pass
 
 def retrieveNewID():
-  return("TODO:")
+  global myID
+  myID = ''.join(choice(string.ascii_letters + string.digits) for _ in range(8))
+
+# TODO: client during alpha; "server" later. 
+# TODO: Update instead of appending (though append provides history)
+def writeState():
+  global cr, dcr, workarounds, myID
+  wka=workarounds["postMsg"]
+  
+  lines, server, port = wka["lines"], wka["server"], wka["port"]
+  lines.append('/exec HTTP/1.1' +cr)
+  lines.append('Host: {}'.format(server)+cr)    # Todo: Password
+
+  s = openSocket(server, port)
+  [s.send(q.encode()) for q in lines]
+
+  pi = progInfo
+  gs = gameStuff
+  
+  data={'app': pi["name"],
+        'unique': myID,            # TODO: insecure during alpha
+        'sequence': pi["version"], # TODO: if !timestamp works
+        'data': { 
+          'myID' : myID,
+          'nowX' : gs["nowX"],
+          'nowY' : gs["nowY"],
+          'api'  : pi["version"],
+        }
+  }
+  safedata=urlp.urlencode(data)
+  
+  s.send(("Content-Length: "+str(len(safedata)) + cr).encode())
+  s.send(("Content-Type: application/x-www-form-urlencoded"+dcr).encode())
+  s.send((safedata).encode())
+
+  res=getResponse(s, 0)
+
+  # s.shutdown()
+  s.close()
+  
+  return(myID)
 
 def SaveState():
   # TODO:
@@ -105,112 +304,64 @@ def SaveState():
 def getVisibleMaze():
   # TODO:
   pass
+
+# fix this - packet 1 for 1 type, packet 2 for the other
+def getResponse(sock, thisOne):
+  chunks=[]
+  bytes_recd=0
+  while True:
+    chunk = sock.recv(8192) # min(expected, 2048)
+    if chunk == b'':
+      raise RuntimeError("Socket connection broken")
+    chunks.append(chunk)
+    bytes_recd=bytes_recd + len(chunk)
+    if chunk == b'0\r\n\r\n':
+      # no more data
+      break
+    if chunk[:30] == b'HTTP/1.1 302 Moved Temporarily':  # ignore server redirect for now
+      break
+  return chunks[thisOne].decode()   # b''.join(chunks)
   
 def game():
   if(playerChar == wall):
     print("WARNING: Player character same as walls!")
   if(myID==""):
-    printInstructions(retrieveNewID())
+    retrieveNewID()
+    printInstructions()
+    writeState()
     quit()
 
-  sInput = raw_input("Your command: ")
+  # restore state. If input is blank, always print map and stats, then quit
+  #   If not on sololearn:                         print map+stats, take input (blank:printquit), try to move, update, print map and stats, quit() - should restart
+  #   If on sololearn, take input. If it's blank,  printquit
+  #                                if it's moves,                              try to move, update, print map and stats, quit
 
   RestoreSavedState()
-  printMaze()
-  printStats()
+  if not onSoloLearn:
+    printMaze()
+    printStats()
 
+  sInput = input("Your command: ")
   if (sInput.strip() == ""):
-    # SoloLearn effect: No input = print maze. Home effect: might continue.
+    printMaze()      # 'harmless' duplicate output off SoloLearn.
+    printStats()
     quit()
 
-  if (not validInput(sInput) ):
-    print("Invalid input detected.")
-    printValidInputs()
-    quit()
+  if not onSoloLearn:
+    tryToMove(sInput)
+    writeState()
+    printMaze()
+    
+  #if (not validInput(sInput) ):
+  #  print("Invalid input detected.")
+  #  printValidInputs()
+  #  quit()
+
+  if onSoloLearn:
+      printMaze()   # oops. Loads text maze too
+      tryToMove(sInput)
+      writeState()
+      printMaze()
+      printStats()
 
 game()
-
-"""
-
-def getLastMsg():
-  cr=chr(13)+chr(10); dcr=cr+cr
-  qry=urlp.urlencode({"tq":YourQuery})
-  server="docs.google.com"
-  wkaround=["GET ",
-    '/spreadsheets/d',
-    '/165j5AGZZOotBpztjkt0JsEcPLeNBYO8S7fSlsdTgkug/gviz',
-    '/tq?{} HTTP/1.1'.format(qry) + cr,
-    'Host: {}'.format(server) + dcr,
-  ]
-
-  ss = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-  s = ssl.wrap_socket(ss, ssl_version=ssl.PROTOCOL_TLSv1, ciphers="ALL")
-  s.connect((server,443))
-  [s.send(q.encode()) for q in wkaround]
-  
-  c=0
-  while True:
-    resp = s.recv(4096).decode() # hardcoded/known reads
-    # print("[{}]".format(c), resp,)  
-    if(c==1): injson = resp
-    if(c==2): break    # last read has len 0
-    c+=1
-
-  s.close()
-  
-  paren=injson.find("(")+1
-  oData = json.loads(injson[paren:-4])
-  
-  try:
-    row=oData["table"]["rows"][0]["c"]
-    print("Last: {}".format(row[0]["f"]) )
-    print(" App: {}".format(row[1]["v"]) )
-    print("Uniq: {}".format(row[2]["v"]) )
-    print(" Seq: {}".format(row[3]["v"]) )
-    print(" Msg: {}".format(row[4]["v"]) )
-  except Exception as e:
-    print(e)
-  else:
-    print("*"*35)
-    import pprint
-    pp=pprint.PrettyPrinter(width=38)
-    pp.pprint(oData) 
-  
-def postNewMsg(m):
-  cr=chr(13)+chr(10); dcr=cr+cr
-  server="script.google.com"
-  wkAround=['POST ',
-    '/macros/s',
-    '/AKfycbxmW9vaqyRPaVSpg1igeq',
-    'Y6aQHaDwLewR2njuRjvj8k3oXQ2dg',
-    '/exec HTTP/1.1' +cr, 'Host: {}'.format(server)+cr,
-  ]
-  
-  ss = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-  s = ssl.wrap_socket(ss, ssl_version=ssl.PROTOCOL_TLSv1, ciphers="ALL")
-  s.connect((server,443))
-  [s.send(q.encode()) for q in wkAround]
-  
-  data={'app':YourApp,            # change it!
-        'unique':YourUnique,      # demo data
-        'sequence': YourSequence, # demo data
-        'data':m}                 # demo message
-  safedata=urlp.urlencode(data)
-  
-  s.send(("Content-Length: "+str(len(safedata)) + cr).encode())
-  s.send(("Content-Type: application/x-www-form-urlencoded"+dcr).encode())
-  s.send((safedata).encode())
-
-  c=0
-  while True:
-    resp = s.recv(4096).decode() # fragile but fixable
-    # print("[{}]".format(c), resp,) # ignore 302 redir atm
-    break
-    c+=1
-
-  s.close()
-  
-getLastMsg()
-print("sending message...")
-postNewMsg(YourMessage)
-"""
