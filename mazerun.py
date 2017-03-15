@@ -6,7 +6,7 @@ from random import randint, choice
 # import multiprocessing # memory seems ok
 
 ###### Identify your saved state #####
-myID=""    # Provided to new players #
+myID="ti1ypITq"    # Provided to new players #
 myPass=""  # Up to you:theft control #
 onSoloLearn=True                     #
 ######################################
@@ -41,7 +41,7 @@ def printValidInputs():
 # Variables
 ############################################################
 wall, playerChar = [chr(246), chr(232)] if onSoloLearn else ["*", "@"]
-
+wall,playerChar = ["*", "@"]
 progInfo = {
   "name" : "pyMazeRun",
   "version" : "0.1",
@@ -154,6 +154,7 @@ def RestoreSavedState():
 def loadMaze():
   global wall, gameStuff
   gsm = gameStuff["maze"]
+  gsm["text"]=[]
   i=0; nowX,nowY = gameStuff["nowX"], gameStuff["nowY"]
   
   for rowInt in gsm["ints"]:
@@ -304,10 +305,6 @@ def writeState():
   
   return(myID)
 
-def SaveState():
-  # TODO:
-  pass
-
 def getVisibleMaze():
   # TODO:
   pass
@@ -350,6 +347,7 @@ def game():
     printStats()
 
   sInput = input("Your command: ")
+  print("")
   if (sInput.strip() == ""):
     if onSoloLearn:
       printMaze()      # don't duplicate off SoloLearn
@@ -362,8 +360,7 @@ def game():
     loadMaze()
     printMaze()
     
-  if onSoloLearn:
-      #printMaze()   # oops. Loads text maze too
+  if onSoloLearn:      
       tryToMove(sInput)
       writeState()
       loadMaze()
