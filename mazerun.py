@@ -6,7 +6,7 @@ from random import randint, choice
 # import multiprocessing # memory seems ok
 
 ###### Identify your saved state #####
-myID="v4VEa62C"    # Provided to new players #
+myID=""    # Provided to new players #
 myPass=""  # Up to you:theft control #
 onSoloLearn=True                     #
 ######################################
@@ -40,8 +40,7 @@ def printValidInputs():
 
 # Variables
 ############################################################
-wall = "*" # chr(233)
-playerChar = "@"
+wall, playerChar = [chr(246), chr(232)] if onSoloLearn else ["*", "@"]
 
 progInfo = {
   "name" : "pyMazeRun",
@@ -101,14 +100,19 @@ def RestoreSavedState():
   # TODO: Alpha test; add loader
   # ------------------------------------------------
   gsm["ints"] = (
-    1099510579198,586263037986,733365644202,732426183306,734102798074,
-    696458446850,818992050158,561040728098,1078014753722,695828777130,
-    754752352170,586833600554,802084863978,561038532642,1029428981678,
-    586407749794,1076890630842,560629711498,820069973690,697941265058,
-    1078014503598,560537936522,801995668202,696366170658,755640303546,
-    698069058082,802067234542,689351172642,824629258938,558382090914,
-    802066971566,723737682466,755842920186,584688085154,1025137175470,
-    698612197930,801745119978,552442298882,1099510579198,0
+    1099510579198,586263037986,733365644202,
+    732426183306,734102798074,696458446850,
+    818992050158,561040728098,1078014753722,
+    695828777130,754752352170,586833600554,
+    802084863978,561038532642,1029428981678,
+    586407749794,1076890630842,560629711498,
+    820069973690,697941265058,1078014503598,
+    560537936522,801995668202,696366170658,
+    755640303546,698069058082,802067234542,
+    689351172642,824629258938,558382090914,
+    802066971566,723737682466,755842920186,
+    584688085154,1025137175470,698612197930,
+    801745119978,552442298882,1099510579198,0
   )
     
   # TODO: maze, events, treasures
@@ -147,7 +151,7 @@ def RestoreSavedState():
   #  pp=pprint.PrettyPrinter(width=38)
   #  pp.pprint(oData) 
 
-def printMaze():
+def loadMaze():
   global wall, gameStuff
   gsm = gameStuff["maze"]
   i=0; nowX,nowY = gameStuff["nowX"], gameStuff["nowY"]
@@ -159,9 +163,12 @@ def printMaze():
     outLine = [wall if c==1 else " " for c in mazeExpand]
     if(i==nowX): outLine[nowY] = playerChar;
     o=''.join(outLine)
-    print(o)
     gsm["text"].append(o)
     i += 1
+
+def printMaze():
+  for o in gameStuff["maze"]["text"]:
+    print(o[:-1])
 
 def tryToMove(moves):
   # TODO: Convert to class for self variables
@@ -337,30 +344,29 @@ def game():
   #                                if it's moves,                              try to move, update, print map and stats, quit
 
   RestoreSavedState()
+  loadMaze()
   if not onSoloLearn:
     printMaze()
     printStats()
 
   sInput = input("Your command: ")
   if (sInput.strip() == ""):
-    printMaze()      # 'harmless' duplicate output off SoloLearn.
-    printStats()
+    if onSoloLearn:
+      printMaze()      # don't duplicate off SoloLearn
+      printStats()
     quit()
 
   if not onSoloLearn:
     tryToMove(sInput)
     writeState()
+    loadMaze()
     printMaze()
     
-  #if (not validInput(sInput) ):
-  #  print("Invalid input detected.")
-  #  printValidInputs()
-  #  quit()
-
   if onSoloLearn:
-      printMaze()   # oops. Loads text maze too
+      #printMaze()   # oops. Loads text maze too
       tryToMove(sInput)
       writeState()
+      loadMaze()
       printMaze()
       printStats()
 
